@@ -135,7 +135,7 @@ config.save_json(f'Config/{NAME}.json', to_save)
 
 
 df = pd.read_csv(TRAIN_FILE)
-ds = NameDataset(df, "name")
+ds = NameDataset(df, COLUMN)
 dl = DataLoader(ds, batch_size=256, shuffle=True)
 model = NameLSTM(inputs=INPUT, outputs=OUTPUT, hidden_sz=HIDDEN_SZ, num_layers=NUM_LAYERS, embed_dim=EMBED_DIM)
 optimizer = optim.Adam(model.parameters(), lr=LR)
