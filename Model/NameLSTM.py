@@ -5,7 +5,7 @@ from torch.nn import functional as F
 
 
 class NameLSTM(nn.Module):
-    def __init__(self, inputs: dict, outputs: dict, hidden_sz: int = 100, num_layers: int = 5, embed_dim: int = 3):
+    def __init__(self, inputs: dict, outputs: dict, hidden_sz: int = 256, num_layers: int = 5, embed_dim: int = 3):
         super().__init__()
 
         self.inputs = inputs

@@ -9,13 +9,33 @@ from Model.NameLSTM import NameLSTM
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import Utilities.JSON as config
+import argparse
 from Convert import strings_to_index_tensor
 
-EPOCH = 2000
+# Optional command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--name', help='Name of the Session', nargs='?', default='First', type=str)
+parser.add_argument('--hidden_size', help='Size of the hidden layer of LSTM', nargs='?', default=256, type=int)
+parser.add_argument('--lr', help='Learning rate', nargs='?', default=0.005, type=float)
+parser.add_argument('--batch_size', help='Size of the batch training on', nargs='?', default=500, type=int)
+parser.add_argument('--num_epochs', help='Number of epochs', nargs='?', default=5000, type=int)
+parser.add_argument('--num_layers', help='Number of layers', nargs='?', default=5, type=int)
+parser.add_argument('--embed_dim', help='Word embedding size', nargs='?', default=5, type=int)
+parser.add_argument('--continue_training', help='Boolean whether to continue training an existing model', nargs='?',
+                    default=False, type=bool)
+
+
+# Parse optional args from command line and save the configurations into a JSON file
+args = parser.parse_args()
+NAME = args.name
+EPOCH = args.num_epochs
 PLOT_EVERY = 50
-LR = 0.0005
+NUM_LAYERS = args.num_layers
+LR = args.lr
+HIDDEN_SZ = args.hidden_size
 CLIP = 1
-NAME = "first"
+EMBED_DIM = args.embed_dim
 
 def loss(self, Y_hat, Y):
     # TRICK 3 ********************************
@@ -96,10 +116,24 @@ def train(model: NameLSTM, iterator: DataLoader, optimizer: torch.optim.Optimize
 
     return loss.item()
 
+to_save = {
+    'session_name': NAME,
+    'hidden_size': args.hidden_size,
+    'batch_size': args.batch_size,
+    'input_size': len(INPUT),
+    'output_size': len(OUTPUT),
+    'input': INPUT,
+    'output': OUTPUT,
+    'num_layers': NUM_LAYERS
+}
+
+config.save_json(f'Config/{NAME}.json', to_save)
+
+
 df = pd.read_csv('Data/FirstNames.csv')
 ds = NameDataset(df, "name")
 dl = DataLoader(ds, batch_size=256, shuffle=True)
-model = NameLSTM(inputs=INPUT, outputs=OUTPUT)
+model = NameLSTM(inputs=INPUT, outputs=OUTPUT, hidden_sz=HIDDEN_SZ, num_layers=NUM_LAYERS, embed_dim=EMBED_DIM)
 optimizer = optim.Adam(model.parameters(), lr=LR)
 criterion = nn.NLLLoss(ignore_index=OUT_PAD_IDX)
 
