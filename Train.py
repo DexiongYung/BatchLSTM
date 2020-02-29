@@ -22,6 +22,7 @@ parser.add_argument('--batch_size', help='Size of the batch training on', nargs=
 parser.add_argument('--num_epochs', help='Number of epochs', nargs='?', default=5000, type=int)
 parser.add_argument('--num_layers', help='Number of layers', nargs='?', default=5, type=int)
 parser.add_argument('--embed_dim', help='Word embedding size', nargs='?', default=5, type=int)
+parser.add_argument('--train_file', help='File to train on', nargs='?', default='Data/FirstNames.csv', type=str)
 parser.add_argument('--continue_training', help='Boolean whether to continue training an existing model', nargs='?',
                     default=False, type=bool)
 
@@ -36,6 +37,7 @@ LR = args.lr
 HIDDEN_SZ = args.hidden_size
 CLIP = 1
 EMBED_DIM = args.embed_dim
+TRAIN_FILE = args.train_file
 
 def loss(self, Y_hat, Y):
     # TRICK 3 ********************************
@@ -130,7 +132,7 @@ to_save = {
 config.save_json(f'Config/{NAME}.json', to_save)
 
 
-df = pd.read_csv('Data/FirstNames.csv')
+df = pd.read_csv(TRAIN_FILE)
 ds = NameDataset(df, "name")
 dl = DataLoader(ds, batch_size=256, shuffle=True)
 model = NameLSTM(inputs=INPUT, outputs=OUTPUT, hidden_sz=HIDDEN_SZ, num_layers=NUM_LAYERS, embed_dim=EMBED_DIM)
