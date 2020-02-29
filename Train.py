@@ -23,6 +23,7 @@ parser.add_argument('--num_epochs', help='Number of epochs', nargs='?', default=
 parser.add_argument('--num_layers', help='Number of layers', nargs='?', default=5, type=int)
 parser.add_argument('--embed_dim', help='Word embedding size', nargs='?', default=5, type=int)
 parser.add_argument('--train_file', help='File to train on', nargs='?', default='Data/FirstNames.csv', type=str)
+parser.add_argument('--column', help='Column header of data', nargs='?', default='name', type=str)
 parser.add_argument('--continue_training', help='Boolean whether to continue training an existing model', nargs='?',
                     default=False, type=bool)
 
@@ -38,6 +39,7 @@ HIDDEN_SZ = args.hidden_size
 CLIP = 1
 EMBED_DIM = args.embed_dim
 TRAIN_FILE = args.train_file
+COLUMN = args.column
 
 def loss(self, Y_hat, Y):
     # TRICK 3 ********************************
