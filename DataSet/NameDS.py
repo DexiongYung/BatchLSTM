@@ -8,7 +8,7 @@ class NameDataset(Dataset):
             csv_file (string): Path to the csv file WITHOUT labels
             col_name (string): The column name corresponding to the people names that'll be standardized
         """
-        self.data_frame = df[col_name].str.lower()
+        self.data_frame = df[col_name].str.lower().dropna()
 
     def __len__(self):
         return len(self.data_frame)
