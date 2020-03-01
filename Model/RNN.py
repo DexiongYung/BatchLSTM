@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class RNN(nn.Module):
     def __init__(self, input_size: int, hidden_size: int, output_size: int):
         super(RNN, self).__init__()

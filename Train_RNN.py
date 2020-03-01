@@ -1,17 +1,20 @@
-import torch
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader
-import pandas as pd
+import argparse
 import os
-from Constants import *
-from DataSet.NameDS import NameDataset
-from Model.RNN import RNN
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader
+
 import Utilities.JSON as config
-import argparse
+from Constants import *
 from Convert import strings_to_index_tensor
+from DataSet.NameDS import NameDataset
+from Model.RNN import RNN
+from Model.LSTM import LSTM
 
 # Optional command line arguments
 parser = argparse.ArgumentParser()
@@ -39,6 +42,7 @@ TRAIN_FILE = args.train_file
 COLUMN = args.column
 INPUT_SZ = len(INPUT)
 OUTPUT_SZ = len(OUTPUT)
+MAX_LEN = 20
 
 to_save = {
     'session_name': NAME,
@@ -53,6 +57,7 @@ to_save = {
 
 config.save_json(f'Config/{NAME}.json', to_save)
 
+
 def plot_losses(loss, folder: str = "Results"):
     x = list(range(len(loss)))
     plt.plot(x, loss, 'b--', label="Cross Entropy Loss")
@@ -62,6 +67,7 @@ def plot_losses(loss, folder: str = "Results"):
     plt.legend(loc='upper left')
     plt.savefig(f"{folder}/{NAME}")
     plt.close()
+
 
 # One-hot matrix of first to last letters (not including EOS) for input
 def inputTensor(line):
@@ -74,13 +80,44 @@ def inputTensor(line):
 # LongTensor of second letter to end (EOS) for target
 def targetTensor(line):
     letter_indexes = [OUTPUT[line[li]] for li in range(1, len(line))]
-    letter_indexes.append(OUTPUT['<EOS>']) # EOS
+    letter_indexes.append(OUTPUT['<EOS>'])  # EOS
     return torch.LongTensor(letter_indexes).to(DEVICE)
 
+def lstmTargetTensor(line):
+    letter_indexes = [OUTPUT[line[li]] for li in range(1, len(line))]
+    letter_indexes.append(OUTPUT['<EOS>'])  # EOS
+    tensor = torch.zeros(len(line), 1, OUTPUT_SZ).type(torch.LongTensor)
+    for li in range(len(letter_indexes)):
+        letter = line[li]
+        tensor[li][0][OUTPUT[letter]] = 1
+    return tensor.to(DEVICE)
+
+def sample(rnn: RNN, start_letter='A'):
+    with torch.no_grad():  # no need to track history in sampling
+        input = inputTensor(start_letter)
+        hidden = rnn.initHidden()
+        hidden = (hidden[0].to(DEVICE), hidden[1].to(DEVICE))
+        output_name = start_letter
+
+        for i in range(MAX_LEN):
+            output, hidden = rnn(input[0], hidden)
+            topv, topi = output.topk(1)
+            topi = topi[0][0]
+            if topi == OUTPUT['<EOS>']:
+                break
+            else:
+                letter = OUTPUT[topi]
+                output_name += letter
+            input = inputTensor(letter)
+
+        return output_name
+
+
 def train(rnn: RNN, input_line_tensor: torch.Tensor, target_line_tensor: torch.Tensor):
+    rnn.train()
     criterion = nn.NLLLoss()
     target_line_tensor.unsqueeze_(-1)
-    hidden = rnn.initHidden().to(DEVICE)
+    hidden = rnn.initHidden()
     rnn.zero_grad()
     loss = 0
 
@@ -96,6 +133,30 @@ def train(rnn: RNN, input_line_tensor: torch.Tensor, target_line_tensor: torch.T
 
     return output, loss.item() / input_line_tensor.size(0)
 
+def lstmTrain(rnn: RNN, input_line_tensor: torch.Tensor, target_line_tensor: torch.Tensor):
+    rnn.train()
+    criterion = nn.NLLLoss()
+    hidden = rnn.initHidden()
+    hidden = (hidden[0].to(DEVICE), hidden[1].to(DEVICE))
+    rnn.zero_grad()
+    loss = 0
+
+    for i in range(input_line_tensor.size(0)):
+        # input_line_tensor[i] is [1, input categories]
+        output, hidden = rnn(input_line_tensor[i].unsqueeze(1), hidden)
+        # output is [1,1,output categories]
+        # target_line_tensor[i] is [1,30]
+        l = criterion(output, target_line_tensor[i])
+        loss += l
+
+    loss.backward()
+
+    for p in rnn.parameters():
+        p.data.add_(-LR, p.grad.data)
+
+    return output, loss.item() / input_line_tensor.size(0)
+
+
 def run_epochs(dl: DataLoader, model: RNN):
     total_loss = 0
     all_losses = []
@@ -104,8 +165,8 @@ def run_epochs(dl: DataLoader, model: RNN):
         for x in dl:
             iter += 1
             input = inputTensor(x[0])
-            target = targetTensor(x[0])
-            output, loss = train(model, input, target)
+            target = lstmTargetTensor(x[0])
+            output, loss = lstmTrain(model, input, target)
             total_loss += loss
 
             if iter % PLOT_EVERY == 0:
@@ -114,10 +175,11 @@ def run_epochs(dl: DataLoader, model: RNN):
                 plot_losses(all_losses)
                 torch.save({'weights': model.state_dict()}, os.path.join(f"Weights/{NAME}.path.tar"))
 
+
 df = pd.read_csv(TRAIN_FILE)
 ds = NameDataset(df, COLUMN)
 dl = DataLoader(ds, batch_size=1, shuffle=True)
-model = RNN(input_size=INPUT_SZ, hidden_size=HIDDEN_SZ, output_size=OUTPUT_SZ)
+model = LSTM(input_size=INPUT_SZ, num_layers=NUM_LAYERS, output_size=OUTPUT_SZ, hidden_sz=HIDDEN_SZ)
 optimizer = optim.Adam(model.parameters(), lr=LR)
 model.to(DEVICE)
 

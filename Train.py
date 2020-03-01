@@ -1,17 +1,19 @@
-import torch
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader
-import pandas as pd
+import argparse
 import os
-from Constants import *
-from DataSet.NameDS import NameDataset
-from Model.NameLSTM import NameLSTM
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader
+
 import Utilities.JSON as config
-import argparse
+from Constants import *
 from Convert import strings_to_index_tensor
+from DataSet.NameDS import NameDataset
+from Model.NameLSTM import NameLSTM
 
 # Optional command line arguments
 parser = argparse.ArgumentParser()
@@ -27,7 +29,6 @@ parser.add_argument('--column', help='Column header of data', nargs='?', default
 parser.add_argument('--continue_training', help='Boolean whether to continue training an existing model', nargs='?',
                     default=False, type=bool)
 
-
 # Parse optional args from command line and save the configurations into a JSON file
 args = parser.parse_args()
 NAME = args.name
@@ -40,6 +41,7 @@ CLIP = 1
 EMBED_DIM = args.embed_dim
 TRAIN_FILE = args.train_file
 COLUMN = args.column
+
 
 def loss(self, Y_hat, Y):
     # TRICK 3 ********************************
@@ -69,6 +71,7 @@ def loss(self, Y_hat, Y):
 
     return ce_loss
 
+
 def plot_losses(loss, folder: str = "Results", filename: str = None):
     x = list(range(len(loss)))
     plt.plot(x, loss, 'b--', label="Cross Entropy Loss")
@@ -79,12 +82,14 @@ def plot_losses(loss, folder: str = "Results", filename: str = None):
     plt.savefig(f"{folder}/{filename}")
     plt.close()
 
+
 def save_weights(model: nn.Module, folder="Weights", filename=NAME):
     filepath = os.path.join(folder, f'{filename}.pth.tar')
     if not os.path.exists(folder):
         os.mkdir(folder)
     save_content = model.state_dict()
     torch.save(save_content, filepath)
+
 
 def run_epochs(model: NameLSTM, iterator: DataLoader, optimizer: torch.optim.Optimizer,
                criterion: torch.nn.CrossEntropyLoss, clip: int):
@@ -98,6 +103,7 @@ def run_epochs(model: NameLSTM, iterator: DataLoader, optimizer: torch.optim.Opt
             all_losses.append(total_loss / PLOT_EVERY)
             plot_losses(all_losses, filename="test")
             save_weights(model)
+
 
 def train(model: NameLSTM, iterator: DataLoader, optimizer: torch.optim.Optimizer, criterion: torch.nn.CrossEntropyLoss,
           clip: int):
@@ -120,6 +126,7 @@ def train(model: NameLSTM, iterator: DataLoader, optimizer: torch.optim.Optimize
 
     return loss.item()
 
+
 def train_rnn(model: NameLSTM, name: str, optimizer: torch.optim.Optimizer, criterion: torch.nn.CrossEntropyLoss):
     model.train()
     optimizer.zero_grad()
@@ -136,10 +143,12 @@ def train_rnn(model: NameLSTM, name: str, optimizer: torch.optim.Optimizer, crit
 
     return loss.item()
 
+
 def generate_name(model: NameLSTM):
-    output, hidden = model.forward(torch.tensor([[0]]).to(DEVICE),[1])
+    output, hidden = model.forward(torch.tensor([[0]]).to(DEVICE), [1])
 
     return output
+
 
 to_save = {
     'session_name': NAME,
@@ -154,7 +163,6 @@ to_save = {
 }
 
 config.save_json(f'Config/{NAME}.json', to_save)
-
 
 df = pd.read_csv(TRAIN_FILE)
 ds = NameDataset(df, COLUMN)
