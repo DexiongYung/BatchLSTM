@@ -14,6 +14,7 @@ class NameLSTM(nn.Module):
         self.num_layers = num_layers
         self.hidden_sz = hidden_sz
         self.embed_dim = embed_dim
+        self.softmax = nn.Softmax(2)
 
         # don't count the padding tag for the classifier output
         self.nb_outputs = len(self.outputs) - 1
@@ -37,7 +38,7 @@ class NameLSTM(nn.Module):
         # output layer which projects back to output space
         self.hidden_to_output = nn.Linear(self.hidden_sz, self.nb_outputs)
 
-    def forward(self, X: list, X_lens: list):
+    def forward(self, X: list, X_lens: list, hidden: torch.Tensor = None):
         # reset the LSTM hidden state. Must be done before you run a new batch. Otherwise the LSTM will treat
         # a new batch as a continuation of a sequence
         batch_size, seq_len = X.size()
@@ -53,7 +54,10 @@ class NameLSTM(nn.Module):
         X = torch.nn.utils.rnn.pack_padded_sequence(X, X_lens, batch_first=True, enforce_sorted=False)
 
         # now run through LSTM
-        X, self.hidden = self.lstm(X)
+        if hidden is None:
+            X, self.hidden = self.lstm(X)
+        else:
+            X, self.hidden = self.lstm(X, hidden)
 
         # undo the packing operation
         X, _ = torch.nn.utils.rnn.pad_packed_sequence(X, batch_first=True)
@@ -72,7 +76,7 @@ class NameLSTM(nn.Module):
         # Dim transformation: (batch_size * seq_len, hidden_sz) -> (batch_size, seq_len, nb_outputs)
         X = F.log_softmax(X, dim=1)
 
-        # I like to reshape for mental sanity so we're back to (batch_size, seq_len, nb_outputs)
-        Y_hat = X.view(batch_size, seq_len, self.nb_outputs)
+        # reshape (batch_size, seq_len, nb_outputs)
+        Y_hat = self.softmax(X.view(batch_size, seq_len, self.nb_outputs))
 
-        return Y_hat
+        return Y_hat, self.hidden

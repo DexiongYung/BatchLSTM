@@ -111,7 +111,7 @@ def train(model: NameLSTM, iterator: DataLoader, optimizer: torch.optim.Optimize
         src, src_len = strings_to_index_tensor(x, max_len, INPUT, IN_PAD_IDX)
         trg, _ = strings_to_index_tensor(x, max_len, OUTPUT, OUT_PAD_IDX)
 
-        output = model.forward(src, src_len)
+        output, hidden = model.forward(src, src_len)
 
         loss = criterion(torch.transpose(output, 1, 2), trg)
         loss.backward()
@@ -119,6 +119,27 @@ def train(model: NameLSTM, iterator: DataLoader, optimizer: torch.optim.Optimize
         optimizer.step()
 
     return loss.item()
+
+def train_rnn(model: NameLSTM, name: str, optimizer: torch.optim.Optimizer, criterion: torch.nn.CrossEntropyLoss):
+    model.train()
+    optimizer.zero_grad()
+    hidden = model.init_hidden(1)
+    src, _ = strings_to_index_tensor(name, max_len, INPUT, IN_PAD_IDX)
+    trg, _ = strings_to_index_tensor(name, max_len, OUTPUT, OUT_PAD_IDX)
+
+    for i in range(len(name)):
+        max_len = len(name)
+
+        output, hidden = model.forward(src, hidden)
+
+        loss = criterion(output, trg[i])
+
+    return loss.item()
+
+def generate_name(model: NameLSTM):
+    output, hidden = model.forward(torch.tensor([[0]]).to(DEVICE),[1])
+
+    return output
 
 to_save = {
     'session_name': NAME,
@@ -128,7 +149,8 @@ to_save = {
     'output_size': len(OUTPUT),
     'input': INPUT,
     'output': OUTPUT,
-    'num_layers': NUM_LAYERS
+    'num_layers': NUM_LAYERS,
+    'embed_size': EMBED_DIM
 }
 
 config.save_json(f'Config/{NAME}.json', to_save)
@@ -137,8 +159,9 @@ config.save_json(f'Config/{NAME}.json', to_save)
 df = pd.read_csv(TRAIN_FILE)
 ds = NameDataset(df, COLUMN)
 dl = DataLoader(ds, batch_size=256, shuffle=True)
-model = NameLSTM(inputs=INPUT, outputs=OUTPUT, hidden_sz=HIDDEN_SZ, num_layers=NUM_LAYERS, embed_dim=EMBED_DIM)
+model = NameLSTM(INPUT, OUTPUT, HIDDEN_SZ, NUM_LAYERS, EMBED_DIM)
 optimizer = optim.Adam(model.parameters(), lr=LR)
+model.to(DEVICE)
 criterion = nn.NLLLoss(ignore_index=OUT_PAD_IDX)
 
-run_epochs(model, dl, optimizer, criterion, CLIP)
+generate_name(model)

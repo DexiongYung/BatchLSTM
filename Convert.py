@@ -14,4 +14,4 @@ def strings_to_index_tensor(strings: list, max_string_len: int, vocab: dict, pad
         lens[i_s] = len(s)
         for i_char, char in enumerate(s):
             tensor[i_s][i_char] = vocab[char]
-    return tensor, lens
+    return tensor.to(DEVICE), lens.to(DEVICE)
