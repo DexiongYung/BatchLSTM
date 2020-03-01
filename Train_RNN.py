@@ -1,17 +1,19 @@
-import torch
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader
-import pandas as pd
+import argparse
 import os
-from Constants import *
-from DataSet.NameDS import NameDataset
-from Model.RNN import RNN
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader
+
 import Utilities.JSON as config
-import argparse
+from Constants import *
 from Convert import strings_to_index_tensor
+from DataSet.NameDS import NameDataset
+from Model.RNN import RNN
 
 # Optional command line arguments
 parser = argparse.ArgumentParser()
@@ -39,6 +41,7 @@ TRAIN_FILE = args.train_file
 COLUMN = args.column
 INPUT_SZ = len(INPUT)
 OUTPUT_SZ = len(OUTPUT)
+MAX_LEN = 20
 
 to_save = {
     'session_name': NAME,
@@ -53,6 +56,7 @@ to_save = {
 
 config.save_json(f'Config/{NAME}.json', to_save)
 
+
 def plot_losses(loss, folder: str = "Results"):
     x = list(range(len(loss)))
     plt.plot(x, loss, 'b--', label="Cross Entropy Loss")
@@ -63,6 +67,7 @@ def plot_losses(loss, folder: str = "Results"):
     plt.savefig(f"{folder}/{NAME}")
     plt.close()
 
+
 # One-hot matrix of first to last letters (not including EOS) for input
 def inputTensor(line):
     tensor = torch.zeros(len(line), 1, INPUT_SZ)
@@ -71,13 +76,37 @@ def inputTensor(line):
         tensor[li][0][INPUT[letter]] = 1
     return tensor.to(DEVICE)
 
+
 # LongTensor of second letter to end (EOS) for target
 def targetTensor(line):
     letter_indexes = [OUTPUT[line[li]] for li in range(1, len(line))]
-    letter_indexes.append(OUTPUT['<EOS>']) # EOS
+    letter_indexes.append(OUTPUT['<EOS>'])  # EOS
     return torch.LongTensor(letter_indexes).to(DEVICE)
 
+
+def sample(rnn: RNN, start_letter='A'):
+    with torch.no_grad():  # no need to track history in sampling
+        input = inputTensor(start_letter)
+        hidden = rnn.initHidden().to(DEVICE)
+
+        output_name = start_letter
+
+        for i in range(MAX_LEN):
+            output, hidden = rnn(input[0], hidden)
+            topv, topi = output.topk(1)
+            topi = topi[0][0]
+            if topi == OUTPUT['<EOS>']:
+                break
+            else:
+                letter = OUTPUT[topi]
+                output_name += letter
+            input = inputTensor(letter)
+
+        return output_name
+
+
 def train(rnn: RNN, input_line_tensor: torch.Tensor, target_line_tensor: torch.Tensor):
+    rnn.train()
     criterion = nn.NLLLoss()
     target_line_tensor.unsqueeze_(-1)
     hidden = rnn.initHidden().to(DEVICE)
@@ -96,6 +125,7 @@ def train(rnn: RNN, input_line_tensor: torch.Tensor, target_line_tensor: torch.T
 
     return output, loss.item() / input_line_tensor.size(0)
 
+
 def run_epochs(dl: DataLoader, model: RNN):
     total_loss = 0
     all_losses = []
@@ -113,6 +143,7 @@ def run_epochs(dl: DataLoader, model: RNN):
                 total_loss = 0
                 plot_losses(all_losses)
                 torch.save({'weights': model.state_dict()}, os.path.join(f"Weights/{NAME}.path.tar"))
+
 
 df = pd.read_csv(TRAIN_FILE)
 ds = NameDataset(df, COLUMN)

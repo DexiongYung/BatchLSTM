@@ -1,5 +1,7 @@
 import torch
+
 from Constants import *
+
 
 def strings_to_index_tensor(strings: list, max_string_len: int, vocab: dict, pad: str) -> list:
     """
@@ -8,7 +10,7 @@ def strings_to_index_tensor(strings: list, max_string_len: int, vocab: dict, pad
     Example: strings: ["012","9 ."], max_string_len: 4,
             => torch.tensor([[0,9],[1,10],[2,11],[10,10]])
     """
-    tensor = torch.ones(len(strings),max_string_len).type(torch.LongTensor) * pad
+    tensor = torch.ones(len(strings), max_string_len).type(torch.LongTensor) * pad
     lens = torch.zeros(len(strings)).type(torch.LongTensor)
     for i_s, s in enumerate(strings):
         lens[i_s] = len(s)
