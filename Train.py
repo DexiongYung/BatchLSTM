@@ -1,7 +1,6 @@
 import argparse
-import os
-
 import matplotlib.pyplot as plt
+import os
 import pandas as pd
 import torch
 import torch.nn as nn
