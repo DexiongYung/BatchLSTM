@@ -16,6 +16,9 @@ from DataSet.NameDS import NameDataset
 from Model.RNN import RNN
 from Model.LSTM import LSTM
 
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 # Optional command line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', help='Name of the Session', nargs='?', default='First', type=str)
