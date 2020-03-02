@@ -1,7 +1,6 @@
 import argparse
-import os
-
 import matplotlib.pyplot as plt
+import os
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -74,7 +73,7 @@ def plot_losses(loss, folder: str = "Results"):
 # One-hot matrix of first to last letters (not including EOS) for input
 def inputTensor(line):
     line_list = ['<SOS>']
-    
+
     for idx in range(len(line)):
         line_list.append(line[idx])
 
@@ -86,11 +85,13 @@ def inputTensor(line):
 
     return tensor.to(DEVICE)
 
+
 def targetTensor(line):
     letter_indexes = [OUTPUT[line[li]] for li in range(len(line))]
     letter_indexes.append(OUTPUT['<EOS>'])  # EOS
 
     return torch.LongTensor(letter_indexes).to(DEVICE)
+
 
 def lstmTrain(lstm: LSTM, input_line_tensor: torch.Tensor, target_line_tensor: torch.Tensor):
     lstm.train()

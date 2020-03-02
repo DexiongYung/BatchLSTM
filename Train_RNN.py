@@ -1,7 +1,7 @@
 import argparse
-import os
-
 import matplotlib.pyplot as plt
+import os
+import os
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -13,10 +13,9 @@ import Utilities.JSON as config
 from Constants import *
 from Convert import strings_to_index_tensor
 from DataSet.NameDS import NameDataset
-from Model.RNN import RNN
 from Model.LSTM import LSTM
+from Model.RNN import RNN
 
-import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 # Optional command line arguments
@@ -80,11 +79,13 @@ def inputTensor(line):
         tensor[li][0][INPUT[letter]] = 1
     return tensor.to(DEVICE)
 
+
 # LongTensor of second letter to end (EOS) for target
 def targetTensor(line):
     letter_indexes = [OUTPUT[line[li]] for li in range(1, len(line))]
     letter_indexes.append(OUTPUT['<EOS>'])  # EOS
     return torch.LongTensor(letter_indexes).to(DEVICE)
+
 
 def lstmTargetTensor(line):
     letter_indexes = [OUTPUT[line[li]] for li in range(1, len(line))]
@@ -94,6 +95,7 @@ def lstmTargetTensor(line):
         letter = line[li]
         tensor[li][0][OUTPUT[letter]] = 1
     return tensor.to(DEVICE)
+
 
 def sample(rnn: RNN, start_letter='A'):
     with torch.no_grad():  # no need to track history in sampling
@@ -135,6 +137,7 @@ def train(rnn: RNN, input_line_tensor: torch.Tensor, target_line_tensor: torch.T
         p.data.add_(-LR, p.grad.data)
 
     return output, loss.item() / input_line_tensor.size(0)
+
 
 def lstmTrain(rnn: RNN, input_line_tensor: torch.Tensor, target_line_tensor: torch.Tensor):
     rnn.train()
