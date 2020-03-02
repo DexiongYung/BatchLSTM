@@ -18,7 +18,7 @@ from Model.LSTM import LSTM
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', help='Name of the Session', nargs='?', default='first_lstm', type=str)
 parser.add_argument('--hidden_size', help='Size of the hidden layer of LSTM', nargs='?', default=256, type=int)
-parser.add_argument('--lr', help='Learning rate', nargs='?', default=0.005, type=float)
+parser.add_argument('--lr', help='Learning rate', nargs='?', default=0.05, type=float)
 parser.add_argument('--batch_size', help='Size of the batch training on', nargs='?', default=500, type=int)
 parser.add_argument('--num_epochs', help='Number of epochs', nargs='?', default=5000, type=int)
 parser.add_argument('--num_layers', help='Number of layers', nargs='?', default=5, type=int)
@@ -58,6 +58,10 @@ to_save = {
 
 config.save_json(f'Config/{NAME}.json', to_save)
 
+def init_input():
+    decoder_input = torch.zeros(1, 1, OUTPUT_SZ)
+    decoder_input[0, 0, OUTPUT['<SOS>']] = 1.
+    return decoder_input.to(DEVICE)
 
 def plot_losses(loss, folder: str = "Results"):
     x = list(range(len(loss)))
@@ -85,6 +89,25 @@ def inputTensor(line):
 
     return tensor.to(DEVICE)
 
+def inputCharTensor(line):
+    line_list = []
+
+    for idx in range(len(line)):
+        line_list.append(line[idx])
+
+    tensor = torch.zeros(len(line_list), 1, INPUT_SZ)
+
+    for idx in range(len(line_list)):
+        letter = line_list[idx]
+        tensor[idx][0][INPUT[letter]] = 1
+
+    return tensor.to(DEVICE)
+
+def list_to_tensor(input: list) -> torch.Tensor:
+    tensor = torch.zeros(len(input), 1, INPUT_SZ)
+    for i in range(len(input)):
+        tensor[i, 0, INPUT[input[i]]] = 1
+    return tensor.to(DEVICE)
 
 def targetTensor(line):
     letter_indexes = [OUTPUT[line[li]] for li in range(len(line))]
@@ -92,29 +115,59 @@ def targetTensor(line):
 
     return torch.LongTensor(letter_indexes).to(DEVICE)
 
+def sample(lstm: LSTM):
+    with torch.no_grad():  # no need to track history in sampling
+        input = inputTensor('a')
+        hidden = lstm.initHidden()
+        hidden = (hidden[0].to(DEVICE), hidden[1].to(DEVICE))
+        output_name = ''
 
-def lstmTrain(lstm: LSTM, input_line_tensor: torch.Tensor, target_line_tensor: torch.Tensor):
-    lstm.train()
-    lstm.zero_grad()
+        for i in range(MAX_LEN):
+            output, hidden = lstm(input, hidden)
+            topv, topi = output.topk(1)
+            topi = topi[0][0].item()
+            if topi == OUTPUT['<EOS>']:
+                break
+            else:
+                for key, value in OUTPUT.items():
+                    if topi == value:
+                        letter = key
+                output_name += letter
+            input = torch.zeros(1,1,INPUT_SZ).to(DEVICE)
+            input[0][0][topi] = 1
 
-    criterion = nn.NLLLoss()
-    
-    hidden = lstm.initHidden()
+        return output_name
+
+def train(x: str, model: LSTM):
+    optimizer.zero_grad()
+
+    loss = 0.
+
+    list_x = []
+
+    for i in range(len(x)):
+        list_x.append(x[i])
+
+    x = list_to_tensor(list_x)
+    input = init_input()
+    hidden = model.initHidden()
     hidden = (hidden[0].to(DEVICE), hidden[1].to(DEVICE))
-    
-    loss = 0
+    name = ''
 
-    for i in range(input_line_tensor.size(0)):
-        output, hidden = lstm(input_line_tensor[i].unsqueeze(0), hidden)
-        loss += criterion(output[0], target_line_tensor[i].unsqueeze(0))
+    for i in range(x.shape[0]):
+        probs, hidden = model(input, hidden)
+        _, nonzero_indexes = x[i].topk(1)
+        best_index = torch.argmax(probs, dim=2).item()
+        loss += criterion(probs[0], nonzero_indexes[0])
+        for k, v in INPUT.items():
+            if best_index == v:
+                name += k
+        input = torch.zeros(1, 1, INPUT_SZ).to(DEVICE)
+        input[0, 0, best_index] = 1.
 
     loss.backward()
-
-    for p in lstm.parameters():
-        p.data.add_(-LR, p.grad.data)
-
-    return output, loss.item() / input_line_tensor.size(0)
-
+    optimizer.step()
+    return name, loss.item()
 
 def run_epochs(dl: DataLoader, model: LSTM):
     total_loss = 0
@@ -123,9 +176,7 @@ def run_epochs(dl: DataLoader, model: LSTM):
     for i in range(EPOCH):
         for x in dl:
             iter += 1
-            input = inputTensor(x[0])
-            target = targetTensor(x[0])
-            output, loss = lstmTrain(model, input, target)
+            output, loss = train(x[0], model)
             total_loss += loss
 
             if iter % PLOT_EVERY == 0:
@@ -139,11 +190,8 @@ df = pd.read_csv(TRAIN_FILE)
 ds = NameDataset(df, COLUMN)
 dl = DataLoader(ds, batch_size=1, shuffle=True)
 model = LSTM(input_size=INPUT_SZ, num_layers=NUM_LAYERS, output_size=OUTPUT_SZ, hidden_sz=HIDDEN_SZ)
-
-if args.continue_training:
-    model.load_state_dict(torch.load(f'Weights/{NAME}.path.tar'))
-
-optimizer = optim.Adam(model.parameters(), lr=LR)
 model.to(DEVICE)
-
+optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+criterion = nn.NLLLoss()
 run_epochs(dl, model)
+
