@@ -58,10 +58,12 @@ to_save = {
 
 config.save_json(f'Config/{NAME}.json', to_save)
 
+
 def init_input():
     decoder_input = torch.zeros(1, 1, OUTPUT_SZ)
     decoder_input[0, 0, OUTPUT['<SOS>']] = 1.
     return decoder_input.to(DEVICE)
+
 
 def plot_losses(loss, folder: str = "Results"):
     x = list(range(len(loss)))
@@ -74,46 +76,12 @@ def plot_losses(loss, folder: str = "Results"):
     plt.close()
 
 
-# One-hot matrix of first to last letters (not including EOS) for input
-def inputTensor(line):
-    line_list = ['<SOS>']
-
-    for idx in range(len(line)):
-        line_list.append(line[idx])
-
-    tensor = torch.zeros(len(line_list), 1, INPUT_SZ)
-
-    for idx in range(len(line_list)):
-        letter = line_list[idx]
-        tensor[idx][0][INPUT[letter]] = 1
-
-    return tensor.to(DEVICE)
-
-def inputCharTensor(line):
-    line_list = []
-
-    for idx in range(len(line)):
-        line_list.append(line[idx])
-
-    tensor = torch.zeros(len(line_list), 1, INPUT_SZ)
-
-    for idx in range(len(line_list)):
-        letter = line_list[idx]
-        tensor[idx][0][INPUT[letter]] = 1
-
-    return tensor.to(DEVICE)
-
 def list_to_tensor(input: list) -> torch.Tensor:
     tensor = torch.zeros(len(input), 1, INPUT_SZ)
     for i in range(len(input)):
         tensor[i, 0, INPUT[input[i]]] = 1
     return tensor.to(DEVICE)
 
-def targetTensor(line):
-    letter_indexes = [OUTPUT[line[li]] for li in range(len(line))]
-    letter_indexes.append(OUTPUT['<EOS>'])  # EOS
-
-    return torch.LongTensor(letter_indexes).to(DEVICE)
 
 def sample(lstm: LSTM):
     with torch.no_grad():  # no need to track history in sampling
@@ -133,8 +101,9 @@ def sample(lstm: LSTM):
                     name += k
             input = torch.zeros(1, 1, INPUT_SZ).to(DEVICE)
             input[0, 0, best_index] = 1.
-        
+
         return name
+
 
 def train(x: str, model: LSTM):
     optimizer.zero_grad()
@@ -167,6 +136,7 @@ def train(x: str, model: LSTM):
     optimizer.step()
     return name, loss.item()
 
+
 def run_epochs(dl: DataLoader, model: LSTM):
     total_loss = 0
     all_losses = []
@@ -192,4 +162,3 @@ model.to(DEVICE)
 optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 criterion = nn.NLLLoss()
 run_epochs(dl, model)
-
