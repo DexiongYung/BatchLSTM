@@ -117,26 +117,24 @@ def targetTensor(line):
 
 def sample(lstm: LSTM):
     with torch.no_grad():  # no need to track history in sampling
-        input = inputTensor('a')
-        hidden = lstm.initHidden()
+        input = init_input()
+        hidden = model.initHidden()
         hidden = (hidden[0].to(DEVICE), hidden[1].to(DEVICE))
-        output_name = ''
+        name = ''
+        char = '<SOS>'
+        iter = 0
 
-        for i in range(MAX_LEN):
-            output, hidden = lstm(input, hidden)
-            topv, topi = output.topk(1)
-            topi = topi[0][0].item()
-            if topi == OUTPUT['<EOS>']:
-                break
-            else:
-                for key, value in OUTPUT.items():
-                    if topi == value:
-                        letter = key
-                output_name += letter
-            input = torch.zeros(1,1,INPUT_SZ).to(DEVICE)
-            input[0][0][topi] = 1
-
-        return output_name
+        while char is not '<EOS' and iter < MAX_LEN:
+            iter += 1
+            probs, hidden = model(input, hidden)
+            best_index = torch.argmax(probs, dim=2).item()
+            for k, v in INPUT.items():
+                if best_index == v:
+                    name += k
+            input = torch.zeros(1, 1, INPUT_SZ).to(DEVICE)
+            input[0, 0, best_index] = 1.
+        
+        return name
 
 def train(x: str, model: LSTM):
     optimizer.zero_grad()
