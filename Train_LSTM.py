@@ -96,9 +96,12 @@ def targetTensor(line):
 def lstmTrain(lstm: LSTM, input_line_tensor: torch.Tensor, target_line_tensor: torch.Tensor):
     lstm.train()
     lstm.zero_grad()
+
     criterion = nn.NLLLoss()
+    
     hidden = lstm.initHidden()
     hidden = (hidden[0].to(DEVICE), hidden[1].to(DEVICE))
+    
     loss = 0
 
     for i in range(input_line_tensor.size(0)):

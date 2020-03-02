@@ -3,13 +3,13 @@ import torch.nn as nn
 
 
 class LSTM(nn.Module):
-    def __init__(self, input_size: int, num_layers: int, hidden_sz: int, output_size: int):
+    def __init__(self, input_size: int, num_layers: int, hidden_sz: int, output_size: int, drop_out: float = 0.1):
         super(LSTM, self).__init__()
         self.hidden_size = hidden_sz
         self.num_layers = num_layers
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_sz, num_layers=num_layers)
         self.fc1 = nn.Linear(hidden_sz, output_size)
-        self.dropout = nn.Dropout(0.1)
+        self.dropout = nn.Dropout(drop_out)
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input: torch.Tensor, hidden: torch.Tensor):
